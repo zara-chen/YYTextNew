@@ -2767,7 +2767,7 @@ static void YYTextDrawBorder(YYTextLayout *layout, CGContextRef context, CGSize 
                     if (isVertical) {
                         YYTEXT_SWAP(iRunPosition.x, iRunPosition.y);
                         iRunPosition.y += iLine.position.y;
-                        CGRect iRect = CGRectMake(verticalOffset + line.position.x - descent, iRunPosition.y, ascent + descent, iRunWidth);
+                        CGRect iRect = CGRectMake(verticalOffset + iLine.position.x - descent, iRunPosition.y, ascent + descent, iRunWidth);
                         if (CGRectIsNull(extLineRect)) {
                             extLineRect = iRect;
                         } else {
