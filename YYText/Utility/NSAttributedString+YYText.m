@@ -508,6 +508,14 @@ return style. _attr_;
     return [self yy_attribute:YYTextStrikethroughAttributeName atIndex:index];
 }
 
+- (YYTextDecoration *)yy_textStroke {
+    return [self yy_textStrokeAtIndex:0];
+}
+
+- (YYTextDecoration *)yy_textStrokeAtIndex:(NSUInteger)index {
+    return [self yy_attribute:YYTextStrokeAttributeName atIndex:index];
+}
+
 - (YYTextBorder *)yy_textBorder {
     return [self yy_textBorderAtIndex:0];
 }
@@ -725,6 +733,7 @@ return style. _attr_;
         [failSet addObject:YYTextAttachmentAttributeName];
         [failSet addObject:YYTextHighlightAttributeName];
         [failSet addObject:YYTextGlyphTransformAttributeName];
+        [failSet addObject:YYTextStrokeAttributeName];
     });
     
 #define Fail { result = NO; *stop = YES; return; }
@@ -954,6 +963,10 @@ return style. _attr_;
 
 - (void)setYy_textStrikethrough:(YYTextDecoration *)textStrikethrough {
     [self yy_setTextStrikethrough:textStrikethrough range:NSMakeRange(0, self.length)];
+}
+
+- (void)setYy_textStroke:(YYTextDecoration *)yy_textStroke {
+    [self yy_setTextStroke:yy_textStroke range:NSMakeRange(0, self.length)];
 }
 
 - (void)setYy_textBorder:(YYTextBorder *)textBorder {
@@ -1246,6 +1259,10 @@ return style. _attr_;
 
 - (void)yy_setTextStrikethrough:(YYTextDecoration *)textStrikethrough range:(NSRange)range {
     [self yy_setAttribute:YYTextStrikethroughAttributeName value:textStrikethrough range:range];
+}
+
+- (void)yy_setTextStroke:(YYTextDecoration *)textStroke range:(NSRange)range {
+    [self yy_setAttribute:YYTextStrokeAttributeName value:textStroke range:range];
 }
 
 - (void)yy_setTextBorder:(YYTextBorder *)textBorder range:(NSRange)range {

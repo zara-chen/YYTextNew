@@ -333,6 +333,7 @@ dispatch_semaphore_signal(_lock);
 @property (nonatomic, readwrite) BOOL needDrawShadow;
 @property (nonatomic, readwrite) BOOL needDrawUnderline;
 @property (nonatomic, readwrite) BOOL needDrawText;
+@property (nonatomic, readwrite) BOOL needDrawTextBorder;
 @property (nonatomic, readwrite) BOOL needDrawAttachment;
 @property (nonatomic, readwrite) BOOL needDrawInnerShadow;
 @property (nonatomic, readwrite) BOOL needDrawStrikethrough;
@@ -830,6 +831,7 @@ dispatch_semaphore_signal(_lock);
             if (attrs[YYTextInnerShadowAttributeName]) layout.needDrawInnerShadow = YES;
             if (attrs[YYTextStrikethroughAttributeName]) layout.needDrawStrikethrough = YES;
             if (attrs[YYTextBorderAttributeName]) layout.needDrawBorder = YES;
+            if (attrs[YYTextStrokeAttributeName]) layout.needDrawTextBorder = YES;
         };
         
         [layout.text enumerateAttributesInRange:visibleRange options:NSAttributedStringEnumerationLongestEffectiveRangeNotRequired usingBlock:block];
@@ -2218,150 +2220,178 @@ static void YYTextGetRunsMaxMetric(CFArrayRef runs, CGFloat *xHeight, CGFloat *u
     if (lineThickness) *lineThickness = maxLineThickness;
 }
 
-static void YYTextDrawRun(YYTextLine *line, CTRunRef run, CGContextRef context, CGSize size, BOOL isVertical, NSArray *runRanges, CGFloat verticalOffset) {
-    CGAffineTransform runTextMatrix = CTRunGetTextMatrix(run);
-    BOOL runTextMatrixIsID = CGAffineTransformIsIdentity(runTextMatrix);
+static void YYTextDrawRun(YYTextLine *line, CTRunRef run, CGContextRef context, CGSize size, BOOL isVertical, NSArray *runRanges, CGFloat verticalOffset, BOOL needStroke) {
     
     CFDictionaryRef runAttrs = CTRunGetAttributes(run);
     NSValue *glyphTransformValue = CFDictionaryGetValue(runAttrs, (__bridge const void *)(YYTextGlyphTransformAttributeName));
-    if (!isVertical && !glyphTransformValue) { // draw run
-        if (!runTextMatrixIsID) {
-            CGContextSaveGState(context);
-            CGAffineTransform trans = CGContextGetTextMatrix(context);
-            CGContextSetTextMatrix(context, CGAffineTransformConcat(trans, runTextMatrix));
-        }
-        CTRunDraw(run, context, CFRangeMake(0, 0));
-        if (!runTextMatrixIsID) {
-            CGContextRestoreGState(context);
-        }
-    } else { // draw glyph
-        CTFontRef runFont = CFDictionaryGetValue(runAttrs, kCTFontAttributeName);
-        if (!runFont) return;
-        NSUInteger glyphCount = CTRunGetGlyphCount(run);
-        if (glyphCount <= 0) return;
+    
+    CTFontRef runFont = CFDictionaryGetValue(runAttrs, kCTFontAttributeName);
+    if (!runFont) return;
+    NSUInteger glyphCount = CTRunGetGlyphCount(run);
+    if (glyphCount <= 0) return;
+    
+    CGGlyph glyphs[glyphCount];
+    CGPoint glyphPositions[glyphCount];
+    CTRunGetGlyphs(run, CFRangeMake(0, 0), glyphs);
+    CTRunGetPositions(run, CFRangeMake(0, 0), glyphPositions);
+    
+    CGColorRef fillColor = (CGColorRef)CFDictionaryGetValue(runAttrs, kCTForegroundColorAttributeName);
+    fillColor = YYTextGetCGColor(fillColor);
+    NSNumber *strokeWidth = CFDictionaryGetValue(runAttrs, kCTStrokeWidthAttributeName);
+    NSDictionary *attrs = (id)CTRunGetAttributes(run);
         
-        CGGlyph glyphs[glyphCount];
-        CGPoint glyphPositions[glyphCount];
-        CTRunGetGlyphs(run, CFRangeMake(0, 0), glyphs);
-        CTRunGetPositions(run, CFRangeMake(0, 0), glyphPositions);
-        
-        CGColorRef fillColor = (CGColorRef)CFDictionaryGetValue(runAttrs, kCTForegroundColorAttributeName);
-        fillColor = YYTextGetCGColor(fillColor);
-        NSNumber *strokeWidth = CFDictionaryGetValue(runAttrs, kCTStrokeWidthAttributeName);
-        
-        CGContextSaveGState(context); {
-            CGContextSetFillColorWithColor(context, fillColor);
-            if (strokeWidth == nil || strokeWidth.floatValue == 0) {
-                CGContextSetTextDrawingMode(context, kCGTextFill);
+    CGContextSaveGState(context); {
+        CGContextSetFillColorWithColor(context, fillColor);
+        if (strokeWidth == nil || strokeWidth.floatValue == 0) {
+            CGContextSetTextDrawingMode(context, kCGTextFill);
+        } else {
+            CGColorRef strokeColor = (CGColorRef)CFDictionaryGetValue(runAttrs, kCTStrokeColorAttributeName);
+            if (!strokeColor) strokeColor = fillColor;
+            CGContextSetStrokeColorWithColor(context, strokeColor);
+            CGContextSetLineWidth(context, CTFontGetSize(runFont) * fabs(strokeWidth.floatValue * 0.01));
+            if (strokeWidth.floatValue > 0) {
+                CGContextSetTextDrawingMode(context, kCGTextStroke);
             } else {
-                CGColorRef strokeColor = (CGColorRef)CFDictionaryGetValue(runAttrs, kCTStrokeColorAttributeName);
-                if (!strokeColor) strokeColor = fillColor;
-                CGContextSetStrokeColorWithColor(context, strokeColor);
-                CGContextSetLineWidth(context, CTFontGetSize(runFont) * fabs(strokeWidth.floatValue * 0.01));
-                if (strokeWidth.floatValue > 0) {
-                    CGContextSetTextDrawingMode(context, kCGTextStroke);
-                } else {
-                    CGContextSetTextDrawingMode(context, kCGTextFillStroke);
+                CGContextSetTextDrawingMode(context, kCGTextFillStroke);
+            }
+        }
+        
+        if (isVertical) {
+            CFIndex runStrIdx[glyphCount + 1];
+            CTRunGetStringIndices(run, CFRangeMake(0, 0), runStrIdx);
+            CFRange runStrRange = CTRunGetStringRange(run);
+            runStrIdx[glyphCount] = runStrRange.location + runStrRange.length;
+            CGSize glyphAdvances[glyphCount];
+            CTRunGetAdvances(run, CFRangeMake(0, 0), glyphAdvances);
+            CGFloat ascent = CTFontGetAscent(runFont);
+            CGFloat descent = CTFontGetDescent(runFont);
+            CGAffineTransform glyphTransform = glyphTransformValue.CGAffineTransformValue;
+            CGPoint zeroPoint = CGPointZero;
+            
+            for (YYTextRunGlyphRange *oneRange in runRanges) {
+                NSRange range = oneRange.glyphRangeInRun;
+                NSUInteger rangeMax = range.location + range.length;
+                YYTextRunGlyphDrawMode mode = oneRange.drawMode;
+                
+                for (NSUInteger g = range.location; g < rangeMax; g++) {
+                    CGContextSaveGState(context); {
+                        CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+                        if (glyphTransformValue) {
+                            CGContextSetTextMatrix(context, glyphTransform);
+                        }
+                        if (mode) { // CJK glyph, need rotated
+                            CGFloat ofs = (ascent - descent) * 0.5;
+                            CGFloat w = glyphAdvances[g].width * 0.5;
+                            CGFloat x = x = line.position.x + verticalOffset + glyphPositions[g].y + (ofs - w);
+                            CGFloat y = -line.position.y + size.height - glyphPositions[g].x - (ofs + w);
+                            if (mode == YYTextRunGlyphDrawModeVerticalRotateMove) {
+                                x += w;
+                                y += w;
+                            }
+                            CGContextSetTextPosition(context, x, y);
+                        } else {
+                            CGContextRotateCTM(context, YYTextDegreesToRadians(-90));
+                            CGContextSetTextPosition(context,
+                                                     line.position.y - size.height + glyphPositions[g].x,
+                                                     line.position.x + verticalOffset + glyphPositions[g].y);
+                        }
+                        
+                        if (YYTextCTFontContainsColorBitmapGlyphs(runFont)) {
+                            CTFontDrawGlyphs(runFont, glyphs + g, &zeroPoint, 1, context);
+                        } else {
+                            CGFontRef cgFont = CTFontCopyGraphicsFont(runFont, NULL);
+                            CGContextSetFont(context, cgFont);
+                            CGContextSetFontSize(context, CTFontGetSize(runFont));
+                            
+                            if (needStroke && attrs[YYTextStrokeAttributeName]) {
+                                YYTextDecoration *stroke = attrs[YYTextStrokeAttributeName];
+                                
+                                CGContextSaveGState(context); {
+                                    CGContextSetLineWidth(context, stroke.width.floatValue);
+                                    CGContextSetLineJoin(context, kCGLineJoinRound);
+                                    CGContextSetStrokeColorWithColor(context, YYTextGetCGColor(stroke.color.CGColor));
+                                    CGContextSetTextDrawingMode(context, kCGTextStroke);
+                                    CGContextShowGlyphsAtPositions(context, glyphs + g, &zeroPoint, 1);
+                                } CGContextRestoreGState(context);
+                            }
+                            
+                            CGContextShowGlyphsAtPositions(context, glyphs + g, &zeroPoint, 1);
+                            CGFontRelease(cgFont);
+                        }
+                    } CGContextRestoreGState(context);
                 }
             }
-            
-            if (isVertical) {
+        } else { // not vertical
+            if (glyphTransformValue) {
                 CFIndex runStrIdx[glyphCount + 1];
                 CTRunGetStringIndices(run, CFRangeMake(0, 0), runStrIdx);
                 CFRange runStrRange = CTRunGetStringRange(run);
                 runStrIdx[glyphCount] = runStrRange.location + runStrRange.length;
                 CGSize glyphAdvances[glyphCount];
                 CTRunGetAdvances(run, CFRangeMake(0, 0), glyphAdvances);
-                CGFloat ascent = CTFontGetAscent(runFont);
-                CGFloat descent = CTFontGetDescent(runFont);
                 CGAffineTransform glyphTransform = glyphTransformValue.CGAffineTransformValue;
                 CGPoint zeroPoint = CGPointZero;
                 
-                for (YYTextRunGlyphRange *oneRange in runRanges) {
-                    NSRange range = oneRange.glyphRangeInRun;
-                    NSUInteger rangeMax = range.location + range.length;
-                    YYTextRunGlyphDrawMode mode = oneRange.drawMode;
-                    
-                    for (NSUInteger g = range.location; g < rangeMax; g++) {
-                        CGContextSaveGState(context); {
-                            CGContextSetTextMatrix(context, CGAffineTransformIdentity);
-                            if (glyphTransformValue) {
-                                CGContextSetTextMatrix(context, glyphTransform);
-                            }
-                            if (mode) { // CJK glyph, need rotated
-                                CGFloat ofs = (ascent - descent) * 0.5;
-                                CGFloat w = glyphAdvances[g].width * 0.5;
-                                CGFloat x = x = line.position.x + verticalOffset + glyphPositions[g].y + (ofs - w);
-                                CGFloat y = -line.position.y + size.height - glyphPositions[g].x - (ofs + w);
-                                if (mode == YYTextRunGlyphDrawModeVerticalRotateMove) {
-                                    x += w;
-                                    y += w;
-                                }
-                                CGContextSetTextPosition(context, x, y);
-                            } else {
-                                CGContextRotateCTM(context, YYTextDegreesToRadians(-90));
-                                CGContextSetTextPosition(context,
-                                                         line.position.y - size.height + glyphPositions[g].x,
-                                                         line.position.x + verticalOffset + glyphPositions[g].y);
+                for (NSUInteger g = 0; g < glyphCount; g++) {
+                    CGContextSaveGState(context); {
+                        CGContextSetTextMatrix(context, CGAffineTransformIdentity);
+                        CGContextSetTextMatrix(context, glyphTransform);
+                        CGContextSetTextPosition(context,
+                                                 line.position.x + glyphPositions[g].x,
+                                                 size.height - (line.position.y + glyphPositions[g].y));
+                        
+                        if (YYTextCTFontContainsColorBitmapGlyphs(runFont)) {
+                            CTFontDrawGlyphs(runFont, glyphs + g, &zeroPoint, 1, context);
+                        } else {
+                            CGFontRef cgFont = CTFontCopyGraphicsFont(runFont, NULL);
+                            CGContextSetFont(context, cgFont);
+                            CGContextSetFontSize(context, CTFontGetSize(runFont));
+                            
+                            if (needStroke && attrs[YYTextStrokeAttributeName]) {
+                                YYTextDecoration *stroke = attrs[YYTextStrokeAttributeName];
+                                
+                                CGContextSaveGState(context); {
+                                    CGContextSetLineWidth(context, stroke.width.floatValue);
+                                    CGContextSetLineJoin(context, kCGLineJoinRound);
+                                    CGContextSetStrokeColorWithColor(context, YYTextGetCGColor(stroke.color.CGColor));
+                                    CGContextSetTextDrawingMode(context, kCGTextStroke);
+                                    CGContextShowGlyphsAtPositions(context, glyphs + g, &zeroPoint, 1);
+                                } CGContextRestoreGState(context);
                             }
                             
-                            if (YYTextCTFontContainsColorBitmapGlyphs(runFont)) {
-                                CTFontDrawGlyphs(runFont, glyphs + g, &zeroPoint, 1, context);
-                            } else {
-                                CGFontRef cgFont = CTFontCopyGraphicsFont(runFont, NULL);
-                                CGContextSetFont(context, cgFont);
-                                CGContextSetFontSize(context, CTFontGetSize(runFont));
-                                CGContextShowGlyphsAtPositions(context, glyphs + g, &zeroPoint, 1);
-                                CGFontRelease(cgFont);
-                            }
-                        } CGContextRestoreGState(context);
-                    }
+                            CGContextShowGlyphsAtPositions(context, glyphs + g, &zeroPoint, 1);
+                            CGFontRelease(cgFont);
+                        }
+                    } CGContextRestoreGState(context);
                 }
-            } else { // not vertical
-                if (glyphTransformValue) {
-                    CFIndex runStrIdx[glyphCount + 1];
-                    CTRunGetStringIndices(run, CFRangeMake(0, 0), runStrIdx);
-                    CFRange runStrRange = CTRunGetStringRange(run);
-                    runStrIdx[glyphCount] = runStrRange.location + runStrRange.length;
-                    CGSize glyphAdvances[glyphCount];
-                    CTRunGetAdvances(run, CFRangeMake(0, 0), glyphAdvances);
-                    CGAffineTransform glyphTransform = glyphTransformValue.CGAffineTransformValue;
-                    CGPoint zeroPoint = CGPointZero;
+            } else {
+                if (YYTextCTFontContainsColorBitmapGlyphs(runFont)) {
+                    CTFontDrawGlyphs(runFont, glyphs, glyphPositions, glyphCount, context);
+                } else {
+                    CGFontRef cgFont = CTFontCopyGraphicsFont(runFont, NULL);
+                    CGContextSetFont(context, cgFont);
+                    CGContextSetFontSize(context, CTFontGetSize(runFont));
                     
-                    for (NSUInteger g = 0; g < glyphCount; g++) {
+                    if (needStroke && attrs[YYTextStrokeAttributeName]) {
+                        YYTextDecoration *stroke = attrs[YYTextStrokeAttributeName];
+                        
                         CGContextSaveGState(context); {
-                            CGContextSetTextMatrix(context, CGAffineTransformIdentity);
-                            CGContextSetTextMatrix(context, glyphTransform);
-                            CGContextSetTextPosition(context,
-                                                     line.position.x + glyphPositions[g].x,
-                                                     size.height - (line.position.y + glyphPositions[g].y));
-                            
-                            if (YYTextCTFontContainsColorBitmapGlyphs(runFont)) {
-                                CTFontDrawGlyphs(runFont, glyphs + g, &zeroPoint, 1, context);
-                            } else {
-                                CGFontRef cgFont = CTFontCopyGraphicsFont(runFont, NULL);
-                                CGContextSetFont(context, cgFont);
-                                CGContextSetFontSize(context, CTFontGetSize(runFont));
-                                CGContextShowGlyphsAtPositions(context, glyphs + g, &zeroPoint, 1);
-                                CGFontRelease(cgFont);
-                            }
+                            CGContextSetLineWidth(context, stroke.width.floatValue);
+                            CGContextSetLineJoin(context, kCGLineJoinRound);
+                            CGContextSetStrokeColorWithColor(context, YYTextGetCGColor(stroke.color.CGColor));
+                            CGContextSetTextDrawingMode(context, kCGTextStroke);
+                            CGContextShowGlyphsAtPositions(context, glyphs, glyphPositions, glyphCount);
                         } CGContextRestoreGState(context);
                     }
-                } else {
-                    if (YYTextCTFontContainsColorBitmapGlyphs(runFont)) {
-                        CTFontDrawGlyphs(runFont, glyphs, glyphPositions, glyphCount, context);
-                    } else {
-                        CGFontRef cgFont = CTFontCopyGraphicsFont(runFont, NULL);
-                        CGContextSetFont(context, cgFont);
-                        CGContextSetFontSize(context, CTFontGetSize(runFont));
-                        CGContextShowGlyphsAtPositions(context, glyphs, glyphPositions, glyphCount);
-                        CGFontRelease(cgFont);
-                    }
+                    
+                    CGContextShowGlyphsAtPositions(context, glyphs, glyphPositions, glyphCount);
+                    CGFontRelease(cgFont);
                 }
             }
-            
-        } CGContextRestoreGState(context);
-    }
+        }
+        
+    } CGContextRestoreGState(context);
+    //    }
 }
 
 static void YYTextSetLinePatternInContext(YYTextLineStyle style, CGFloat width, CGFloat phase, CGContextRef context){
@@ -2593,7 +2623,7 @@ static void YYTextDrawLineStyle(CGContextRef context, CGFloat length, CGFloat li
     } CGContextRestoreGState(context);
 }
 
-static void YYTextDrawText(YYTextLayout *layout, CGContextRef context, CGSize size, CGPoint point, BOOL (^cancel)(void)) {
+static void YYTextDrawText(YYTextLayout *layout, CGContextRef context, CGSize size, BOOL needStroke, CGPoint point, BOOL (^cancel)(void)) {
     CGContextSaveGState(context); {
         
         CGContextTranslateCTM(context, point.x, point.y);
@@ -2615,7 +2645,7 @@ static void YYTextDrawText(YYTextLayout *layout, CGContextRef context, CGSize si
                 CTRunRef run = CFArrayGetValueAtIndex(runs, r);
                 CGContextSetTextMatrix(context, CGAffineTransformIdentity);
                 CGContextSetTextPosition(context, posX, posY);
-                YYTextDrawRun(line, run, context, size, isVertical, lineRunRanges[r], verticalOffset);
+                YYTextDrawRun(line, run, context, size, isVertical, lineRunRanges[r], verticalOffset, needStroke);
             }
             if (cancel && cancel()) break;
         }
@@ -3055,7 +3085,7 @@ static void YYTextDrawShadow(YYTextLayout *layout, CGContextRef context, CGSize 
                         CGContextSetShadowWithColor(context, offset, shadow.radius, shadow.color.CGColor);
                         CGContextSetBlendMode(context, shadow.blendMode);
                         CGContextTranslateCTM(context, offsetAlterX, 0);
-                        YYTextDrawRun(line, run, context, size, isVertical, lineRunRanges[r], verticalOffset);
+                        YYTextDrawRun(line, run, context, size, isVertical, lineRunRanges[r], verticalOffset, NO);
                     } CGContextRestoreGState(context);
                     shadow = shadow.subShadow;
                 }
@@ -3123,7 +3153,7 @@ static void YYTextDrawInnerShadow(YYTextLayout *layout, CGContextRef context, CG
                             CGContextFillRect(context, runImageBounds);
                             CGContextSetBlendMode(context, kCGBlendModeDestinationIn);
                             CGContextBeginTransparencyLayer(context, NULL); {
-                                YYTextDrawRun(line, run, context, size, isVertical, lineRunRanges[r], verticalOffset);
+                                YYTextDrawRun(line, run, context, size, isVertical, lineRunRanges[r], verticalOffset, NO);
                             } CGContextEndTransparencyLayer(context);
                         } CGContextEndTransparencyLayer(context);
                     } CGContextEndTransparencyLayer(context);
@@ -3355,7 +3385,7 @@ static void YYTextDrawDebug(YYTextLayout *layout, CGContextRef context, CGSize s
         }
         if (self.needDrawText && context) {
             if (cancel && cancel()) return;
-            YYTextDrawText(self, context, size, point, cancel);
+            YYTextDrawText(self, context, size, self.needDrawTextBorder, point, cancel);
         }
         if (self.needDrawAttachment && (context || view || layer)) {
             if (cancel && cancel()) return;

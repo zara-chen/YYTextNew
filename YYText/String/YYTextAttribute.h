@@ -142,7 +142,8 @@ UIKIT_EXTERN NSString *const YYTextHighlightAttributeName;
 /// Use this attribute to add transform to each glyph in a range of text.
 UIKIT_EXTERN NSString *const YYTextGlyphTransformAttributeName;
 
-
+/// The value of this attribute is a `YYTextDecoration` object.
+UIKIT_EXTERN NSString *const YYTextStrokeAttributeName;
 
 #pragma mark - String Token Define
 

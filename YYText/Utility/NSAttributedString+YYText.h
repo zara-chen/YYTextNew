@@ -549,6 +549,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable, nonatomic, strong, readonly) YYTextDecoration *yy_textStrikethrough;
 - (nullable YYTextDecoration *)yy_textStrikethroughAtIndex:(NSUInteger)index;
 
+@property (nullable, nonatomic, strong, readonly) YYTextDecoration *yy_textStroke;
+- (nullable YYTextDecoration *)yy_textStrokeAtIndex:(NSUInteger)index;
+
 /**
  The text border. (read-only)
  
@@ -1249,6 +1252,10 @@ NS_ASSUME_NONNULL_BEGIN
  */
 @property (nullable, nonatomic, strong, readwrite) YYTextDecoration *yy_textStrikethrough;
 - (void)yy_setTextStrikethrough:(nullable YYTextDecoration *)textStrikethrough range:(NSRange)range;
+
+
+@property (nullable, nonatomic, strong, readwrite) YYTextDecoration *yy_textStroke;
+- (void)yy_setTextStroke:(nullable YYTextDecoration *)textStroke range:(NSRange)range;
 
 /**
  The text border.
