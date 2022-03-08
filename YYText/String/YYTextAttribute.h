@@ -254,7 +254,7 @@ typedef void(^YYTextAction)(UIView *containerView, NSAttributedString *text, NSR
 @property (nullable, nonatomic, strong) UIColor *strokeColor; ///< border line color
 @property (nonatomic) CGLineJoin lineJoin;                    ///< border line join
 @property (nonatomic) UIEdgeInsets insets;                    ///< border insets for text bounds
-@property (nonatomic) CGFloat cornerRadius;                   ///< border corder radius
+@property (nonatomic) CGFloat cornerRadius;                   ///< border corder radius (0.0 - 0.5)
 @property (nullable, nonatomic, strong) YYTextShadow *shadow; ///< border shadow
 @property (nullable, nonatomic, strong) UIColor *fillColor;   ///< inner fill color
 @end

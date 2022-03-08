@@ -109,7 +109,7 @@
         border.strokeColor = [UIColor colorWithRed:1.000 green:0.029 blue:0.651 alpha:1.000];
         border.strokeWidth = 3;
         border.lineStyle = YYTextLineStylePatternCircleDot;
-        border.cornerRadius = 3;
+        border.cornerRadius = 0.3;
         border.insets = UIEdgeInsetsMake(0, -4, 0, -4);
         one.yy_textBackgroundBorder = border;
         
@@ -163,9 +163,9 @@
         YYTextBorder *border = [YYTextBorder new];
         border.cornerRadius = 50;
         border.insets = UIEdgeInsetsMake(0, -10, 0, -10);
-        border.strokeWidth = 0.5;
+        border.strokeWidth = 1.5;
         border.strokeColor = one.yy_color;
-        border.lineStyle = YYTextLineStyleSingle;
+        border.lineStyle = YYTextLineStyleDouble;
         one.yy_textBackgroundBorder = border;
         
         YYTextBorder *highlightBorder = border.copy;

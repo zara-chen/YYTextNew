@@ -2443,7 +2443,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
             rect = UIEdgeInsetsInsetRect(rect, border.insets);
         }
         rect = YYTextCGRectPixelRound(rect);
-        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:border.cornerRadius];
+        // cornerRadius:border.cornerRadius
+        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius];
         [path closePath];
         [paths addObject:path];
     }
@@ -2489,7 +2490,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
                 rect = UIEdgeInsetsInsetRect(rect, border.insets);
             }
             rect = CGRectInset(rect, inset, inset);
-            UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:border.cornerRadius + radiusDelta];
+            // cornerRadius:border.cornerRadius + radiusDelta
+            UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
             [path closePath];
             CGContextAddPath(context, path.CGPath);
         }
@@ -2504,7 +2506,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
                 CGRect rect = value.CGRectValue;
                 rect = UIEdgeInsetsInsetRect(rect, border.insets);
                 rect = CGRectInset(rect, inset, inset);
-                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:border.cornerRadius + 2 * border.strokeWidth];
+                // cornerRadius:border.cornerRadius + 2 * border.strokeWidth
+                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius + 2 * border.strokeWidth];
                 [path closePath];
                 
                 CGRect bounds = CGRectUnion(path.bounds, (CGRect){CGPointZero, size});
@@ -2525,7 +2528,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
                 CGRect rect = value.CGRectValue;
                 rect = UIEdgeInsetsInsetRect(rect, border.insets);
                 rect = CGRectInset(rect, inset, inset);
-                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:border.cornerRadius + radiusDelta];
+                // cornerRadius:border.cornerRadius + radiusDelta
+                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
                 [path closePath];
                 CGContextAddPath(context, path.CGPath);
             }
