@@ -37,6 +37,32 @@ static inline UIEdgeInsets UIEdgeInsetRotateVertical(UIEdgeInsets insets) {
     return one;
 }
 
+static inline UIBezierPath* UIBezierPathCornerRadius(CGRect rect, CGFloat cornerRadius) {
+    CGFloat value = cornerRadius;
+    CGFloat left = rect.origin.x;
+    CGFloat right = rect.origin.x + rect.size.width;
+    CGFloat top = rect.origin.y;
+    CGFloat bottom = rect.origin.y + rect.size.height;
+    
+    UIBezierPath *path = [UIBezierPath bezierPath];
+    
+    [path moveToPoint:CGPointMake(left + value, top)];
+    [path addLineToPoint:CGPointMake(right - value, top)];
+    [path addArcWithCenter:CGPointMake(right - value, top + value) radius:value startAngle:-0.5*M_PI endAngle:0 clockwise:YES];
+    
+    [path addLineToPoint:CGPointMake(right, bottom - value)];
+    [path addArcWithCenter:CGPointMake(right - value, bottom - value) radius:value startAngle:0 endAngle:-1.5*M_PI clockwise:YES];
+    
+    [path addLineToPoint:CGPointMake(left + value, bottom)];
+    [path addArcWithCenter:CGPointMake(left + value, bottom - value) radius:value startAngle:-1.5*M_PI endAngle:-1.0*M_PI clockwise:YES];
+    
+    [path addLineToPoint:CGPointMake(left, top + value)];
+    [path addArcWithCenter:CGPointMake(left + value, top + value) radius:value startAngle:-1.0*M_PI endAngle:-0.5*M_PI clockwise:YES];
+    
+    [path closePath];
+    return path;
+}
+
 /**
  Sometimes CoreText may convert CGColor to UIColor for `kCTForegroundColorAttributeName`
  attribute in iOS7. This should be a bug of CoreText, and may cause crash. Here's a workaround.
@@ -2444,8 +2470,7 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
         }
         rect = YYTextCGRectPixelRound(rect);
         // cornerRadius:border.cornerRadius
-        UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius];
-        [path closePath];
+        UIBezierPath *path = UIBezierPathCornerRadius(rect, rect.size.height * border.cornerRadius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius];
         [paths addObject:path];
     }
     
@@ -2491,8 +2516,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
             }
             rect = CGRectInset(rect, inset, inset);
             // cornerRadius:border.cornerRadius + radiusDelta
-            UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
-            [path closePath];
+            UIBezierPath *path = UIBezierPathCornerRadius(rect, (rect.size.height + radiusDelta) * border.cornerRadius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
+            //[path closePath];
             CGContextAddPath(context, path.CGPath);
         }
         CGContextStrokePath(context);
@@ -2507,8 +2532,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
                 rect = UIEdgeInsetsInsetRect(rect, border.insets);
                 rect = CGRectInset(rect, inset, inset);
                 // cornerRadius:border.cornerRadius + 2 * border.strokeWidth
-                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius + 2 * border.strokeWidth];
-                [path closePath];
+                UIBezierPath *path = UIBezierPathCornerRadius(rect, rect.size.height * border.cornerRadius + 2 * border.strokeWidth);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius + 2 * border.strokeWidth];
+                //[path closePath];
                 
                 CGRect bounds = CGRectUnion(path.bounds, (CGRect){CGPointZero, size});
                 bounds = CGRectInset(bounds, -2 * border.strokeWidth, -2 * border.strokeWidth);
@@ -2529,7 +2554,7 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
                 rect = UIEdgeInsetsInsetRect(rect, border.insets);
                 rect = CGRectInset(rect, inset, inset);
                 // cornerRadius:border.cornerRadius + radiusDelta
-                UIBezierPath *path = [UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
+                UIBezierPath *path = UIBezierPathCornerRadius(rect, (rect.size.height + radiusDelta) * border.cornerRadius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
                 [path closePath];
                 CGContextAddPath(context, path.CGPath);
             }

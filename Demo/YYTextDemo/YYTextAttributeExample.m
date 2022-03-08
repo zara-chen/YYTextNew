@@ -161,7 +161,7 @@
         one.yy_color = [UIColor redColor];
         
         YYTextBorder *border = [YYTextBorder new];
-        border.cornerRadius = 50;
+        border.cornerRadius = 0.5;
         border.insets = UIEdgeInsetsMake(0, -10, 0, -10);
         border.strokeWidth = 1.5;
         border.strokeColor = one.yy_color;
