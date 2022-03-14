@@ -229,6 +229,8 @@
     label.textAlignment = NSTextAlignmentCenter;
     label.textVerticalAlignment = YYTextVerticalAlignmentCenter;
     label.numberOfLines = 0;
+    label.verticalForm = YES;
+    label.exclusionPaths = @[[UIBezierPath bezierPathWithRect:CGRectZero]];
     label.backgroundColor = [UIColor colorWithWhite:0.933 alpha:1.000];
     [self.view addSubview:label];
     

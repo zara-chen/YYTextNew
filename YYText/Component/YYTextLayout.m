@@ -2470,7 +2470,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
         }
         rect = YYTextCGRectPixelRound(rect);
         // cornerRadius:border.cornerRadius
-        UIBezierPath *path = UIBezierPathCornerRadius(rect, rect.size.height * border.cornerRadius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius];
+        CGFloat radius = (isVertical ? rect.size.width : rect.size.height) * border.cornerRadius;
+        UIBezierPath *path = UIBezierPathCornerRadius(rect, radius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius];
         [paths addObject:path];
     }
     
@@ -2516,8 +2517,8 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
             }
             rect = CGRectInset(rect, inset, inset);
             // cornerRadius:border.cornerRadius + radiusDelta
-            UIBezierPath *path = UIBezierPathCornerRadius(rect, (rect.size.height + radiusDelta) * border.cornerRadius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
-            //[path closePath];
+            CGFloat radius = ((isVertical ? (rect.size.width + radiusDelta) : (rect.size.height + radiusDelta))) * border.cornerRadius;
+            UIBezierPath *path = UIBezierPathCornerRadius(rect, radius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
             CGContextAddPath(context, path.CGPath);
         }
         CGContextStrokePath(context);
@@ -2529,11 +2530,15 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
             CGFloat inset = -border.strokeWidth * 2;
             for (NSValue *value in rects) {
                 CGRect rect = value.CGRectValue;
-                rect = UIEdgeInsetsInsetRect(rect, border.insets);
+                if (isVertical) {
+                    rect = UIEdgeInsetsInsetRect(rect, UIEdgeInsetRotateVertical(border.insets));
+                } else {
+                    rect = UIEdgeInsetsInsetRect(rect, border.insets);
+                }
                 rect = CGRectInset(rect, inset, inset);
                 // cornerRadius:border.cornerRadius + 2 * border.strokeWidth
-                UIBezierPath *path = UIBezierPathCornerRadius(rect, rect.size.height * border.cornerRadius + 2 * border.strokeWidth);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius + 2 * border.strokeWidth];
-                //[path closePath];
+                CGFloat radius = ((isVertical ? (rect.size.width + 2 * border.strokeWidth) : (rect.size.height + 2 * border.strokeWidth))) * border.cornerRadius;
+                UIBezierPath *path = UIBezierPathCornerRadius(rect, radius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:rect.size.height * border.cornerRadius + 2 * border.strokeWidth];
                 
                 CGRect bounds = CGRectUnion(path.bounds, (CGRect){CGPointZero, size});
                 bounds = CGRectInset(bounds, -2 * border.strokeWidth, -2 * border.strokeWidth);
@@ -2551,11 +2556,15 @@ static void YYTextDrawBorderRects(CGContextRef context, CGSize size, YYTextBorde
             }
             for (NSValue *value in rects) {
                 CGRect rect = value.CGRectValue;
-                rect = UIEdgeInsetsInsetRect(rect, border.insets);
+                if (isVertical) {
+                    rect = UIEdgeInsetsInsetRect(rect, UIEdgeInsetRotateVertical(border.insets));
+                } else {
+                    rect = UIEdgeInsetsInsetRect(rect, border.insets);
+                }
                 rect = CGRectInset(rect, inset, inset);
                 // cornerRadius:border.cornerRadius + radiusDelta
-                UIBezierPath *path = UIBezierPathCornerRadius(rect, (rect.size.height + radiusDelta) * border.cornerRadius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
-                [path closePath];
+                CGFloat radius = ((isVertical ? (rect.size.width + radiusDelta) : (rect.size.height + radiusDelta))) * border.cornerRadius;
+                UIBezierPath *path = UIBezierPathCornerRadius(rect, radius);//[UIBezierPath bezierPathWithRoundedRect:rect cornerRadius:(rect.size.height + radiusDelta) * border.cornerRadius];
                 CGContextAddPath(context, path.CGPath);
             }
             CGContextStrokePath(context);
